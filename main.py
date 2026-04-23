@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from datetime import date, datetime
 
 app = FastAPI(title="Empresas Recentes API")
@@ -95,10 +96,29 @@ EMPRESAS = [
     },
 ]
 
+LEADS = []
+
+class LeadCreate(BaseModel):
+    empresa_id: int
+    status: str = "Novo"
+    prioridade: str = "Média"
+    observacao: str = ""
+
+class LeadUpdate(BaseModel):
+    status: str
+    prioridade: str
+    observacao: str = ""
+
 def dias_desde(data_iso: str) -> int:
     hoje = date.today()
     data = datetime.strptime(data_iso, "%Y-%m-%d").date()
     return (hoje - data).days
+
+def buscar_empresa_por_id(empresa_id: int):
+    for empresa in EMPRESAS:
+        if empresa["id"] == empresa_id:
+            return empresa
+    return None
 
 @app.get("/health")
 def health():
@@ -126,3 +146,44 @@ def empresas_recentes(
 
     filtradas.sort(key=lambda e: e["energy_score"], reverse=True)
     return filtradas
+
+@app.get("/leads")
+def listar_leads():
+    return LEADS
+
+@app.post("/leads")
+def criar_lead(payload: LeadCreate):
+    empresa = buscar_empresa_por_id(payload.empresa_id)
+    if not empresa:
+        return {"erro": "Empresa não encontrada"}
+
+    for lead in LEADS:
+        if lead["empresa_id"] == payload.empresa_id:
+            return {"erro": "Lead já existe para esta empresa"}
+
+    novo_lead = {
+        "id": len(LEADS) + 1,
+        "empresa_id": payload.empresa_id,
+        "empresa_nome": empresa["nome"],
+        "cidade": empresa["cidade"],
+        "bairro": empresa["bairro"],
+        "categoria": empresa["categoria"],
+        "endereco": empresa["endereco"],
+        "energy_score": empresa["energy_score"],
+        "status": payload.status,
+        "prioridade": payload.prioridade,
+        "observacao": payload.observacao,
+        "aberto_em": empresa["aberto_em"],
+    }
+    LEADS.append(novo_lead)
+    return novo_lead
+
+@app.put("/leads/{lead_id}")
+def atualizar_lead(lead_id: int, payload: LeadUpdate):
+    for lead in LEADS:
+        if lead["id"] == lead_id:
+            lead["status"] = payload.status
+            lead["prioridade"] = payload.prioridade
+            lead["observacao"] = payload.observacao
+            return lead
+    return {"erro": "Lead não encontrado"}
