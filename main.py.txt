@@ -1,0 +1,128 @@
+from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import date, datetime
+
+app = FastAPI(title="Empresas Recentes API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+EMPRESAS = [
+    {
+        "id": 1,
+        "nome": "Frigorífico Canedo",
+        "cidade": "Senador Canedo",
+        "bairro": "Centro",
+        "categoria": "Frigorífico",
+        "endereco": "Rua 10, Centro",
+        "aberto_em": "2026-02-10",
+        "energy_score": 95,
+    },
+    {
+        "id": 2,
+        "nome": "Mercado Central Canedo",
+        "cidade": "Senador Canedo",
+        "bairro": "Jardim das Oliveiras",
+        "categoria": "Supermercado",
+        "endereco": "Av. Goiás, 120",
+        "aberto_em": "2026-01-28",
+        "energy_score": 90,
+    },
+    {
+        "id": 3,
+        "nome": "Padaria Pão Quente",
+        "cidade": "Senador Canedo",
+        "bairro": "Morada do Sol",
+        "categoria": "Padaria",
+        "endereco": "Rua A, 55",
+        "aberto_em": "2026-03-01",
+        "energy_score": 72,
+    },
+    {
+        "id": 4,
+        "nome": "Lavanderia Turbo",
+        "cidade": "Goiânia",
+        "bairro": "Setor Bueno",
+        "categoria": "Lavanderia",
+        "endereco": "Rua T-30, 200",
+        "aberto_em": "2026-03-18",
+        "energy_score": 88,
+    },
+    {
+        "id": 5,
+        "nome": "Sorveteria Verão",
+        "cidade": "Goiânia",
+        "bairro": "Setor Oeste",
+        "categoria": "Sorveteria",
+        "endereco": "Rua 4, 90",
+        "aberto_em": "2026-02-22",
+        "energy_score": 80,
+    },
+    {
+        "id": 6,
+        "nome": "Gelo Forte Distribuidora",
+        "cidade": "Aparecida de Goiânia",
+        "bairro": "Buriti Sereno",
+        "categoria": "Gelo",
+        "endereco": "Av. Independência, 900",
+        "aberto_em": "2026-02-20",
+        "energy_score": 98,
+    },
+    {
+        "id": 7,
+        "nome": "Açougue Boi Forte",
+        "cidade": "Aparecida de Goiânia",
+        "bairro": "Garavelo",
+        "categoria": "Açougue",
+        "endereco": "Rua 12, 321",
+        "aberto_em": "2026-03-08",
+        "energy_score": 85,
+    },
+    {
+        "id": 8,
+        "nome": "Auto Center Premium",
+        "cidade": "Anápolis",
+        "bairro": "Jundiaí",
+        "categoria": "Auto Center",
+        "endereco": "Av. Brasil, 450",
+        "aberto_em": "2026-01-25",
+        "energy_score": 78,
+    },
+]
+
+def dias_desde(data_iso: str) -> int:
+    hoje = date.today()
+    data = datetime.strptime(data_iso, "%Y-%m-%d").date()
+    return (hoje - data).days
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+@app.get("/empresas/recentes")
+def empresas_recentes(
+    cidade: str = Query(default=""),
+    bairro: str = Query(default=""),
+    dias: int = Query(default=90),
+    energia_minima: int = Query(default=80),
+):
+    cidade_busca = cidade.strip().lower()
+    bairro_busca = bairro.strip().lower()
+
+    filtradas = []
+    for empresa in EMPRESAS:
+        bate_cidade = cidade_busca in empresa["cidade"].lower() if cidade_busca else True
+        bate_bairro = bairro_busca in empresa["bairro"].lower() if bairro_busca else True
+        recente = dias_desde(empresa["aberto_em"]) <= dias
+        energia_ok = empresa["energy_score"] >= energia_minima
+
+        if bate_cidade and bate_bairro and recente and energia_ok:
+            filtradas.append(empresa)
+
+    filtradas.sort(key=lambda e: e["energy_score"], reverse=True)
+    return filtradas
